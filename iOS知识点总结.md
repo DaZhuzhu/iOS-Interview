@@ -1175,7 +1175,7 @@ bucket_t bucket = buckets[(long long)@selector(personTest) & buckets._mask];
 
 ##### **3、消息转发**
 
-!![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/objc_msgSend_2.png)![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/objc_msgSend_3.png)
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/objc_msgSend_3.png)
 
 ```objective-c
 forwardingTargetForSelector://该方法可能是类方法也可能是实例方法，具体看未找到的方法是类方法还是实例方法
@@ -1327,11 +1327,11 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 
 ## 四、KVO
 
-**概念：**key-value-observing，键值监听，可以用来监听某个对象的属性变化。
+**概念**：key-value-observing，键值监听，可以用来监听某个对象的属性变化。
 
-**本质：**修改原来的**setter**方法实现。
+**本质**：修改原来的**setter**方法实现。
 
-**原理：**
+**原理**：
 
 1. 利用Runtime动态生成一个子类(**NSKVONotifying_XXX**)，并使实例对象的isa指针指向这个子类。（该子类的父类是原来的类**XXX**）
 
