@@ -1030,9 +1030,9 @@ union isa_t{
 
 ### 5、class
 
-![isa:superclas继承图](/Users/wangjl/Downloads/iOS知识点总结/image/isa以及superclas继承图.png)
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/isa_superclass.png)
 
-![class内部结构](/Users/wangjl/Downloads/iOS知识点总结/image/class内部结构.png)
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/class_struct.png)
 
 **isa**：等价于is kind of
 
@@ -1357,13 +1357,13 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 
 **setValue:forKey:原理图：**
 
-![kvc原理图](/Users/wangjl/Downloads/iOS知识点总结/image/kvc原理图.png)
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/kvc.png)
 
 **Tips：KVC可以触发KVO。**
 
 **valueForKey:原理图**
 
-![kvc原理图2](/Users/wangjl/Downloads/iOS知识点总结/image/kvc原理图2.png)
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/kvc2.png)
 
 
 
@@ -1378,7 +1378,9 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 
 **如果类对象和分类对象有相同的方法实现，则会调用分类的方法实现，不会调用类对象里的方法实现。（类似重写，但其实是假的重写，因为类对象的方法实现并没有被抹去）**
 
-**最后编译的分类，其方法列表会放在对应的类的methods的最前面，其他分类（类对象）的方法列表后移（类对象的方法列表会移到最后），这也是为什么同样的方法实现，会优先调用分类的方法实现，因为它在类的methods最前面。![合并category方法列表](/Users/wangjl/Downloads/iOS知识点总结/image/合并category方法列表.png)**
+**最后编译的分类，其方法列表会放在对应的类的methods的最前面，其他分类（类对象）的方法列表后移（类对象的方法列表会移到最后），这也是为什么同样的方法实现，会优先调用分类的方法实现，因为它在类的methods最前面。**
+
+**![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/category_methods.png)**
 
 ```objective-c
 //类扩展（Extension和分类（Category）的区别：
