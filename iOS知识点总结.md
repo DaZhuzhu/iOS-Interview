@@ -1372,7 +1372,7 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 ### 1、**本质：**
 
 - 每个分类都会在编译期生成如下的结构体（一个_category_t代表一个分类）。
-- ![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/_category_t%E7%BB%93%E6%9E%84%E4%BD%93.png)
+- ![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/_category_t.png)
 
 - 通过runtime（运行时），动态将分类里的信息（方法列表、属性列表、协议列表等）合并到类对象、元类对象中。
 
