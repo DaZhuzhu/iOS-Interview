@@ -1120,11 +1120,13 @@ bucket_t bucket = buckets[(long long)@selector(personTest) & buckets._mask];
 
 **三个阶段：**
 
-##### **1、消息发送阶段（同cache_t章节讲到的方法调用顺序）**![消息发送阶段](/Users/wangjl/Downloads/iOS知识点总结/image/消息发送阶段.png)
+##### **1、消息发送阶段（同cache_t章节讲到的方法调用顺序）**
+
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/objc_msgSend_1.png)
 
 ##### **2、动态方法解析**  
 
-流程： ![动态方法解析](/Users/wangjl/Downloads/iOS知识点总结/image/动态方法解析.png)
+流程： ![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/objc_msgSend_2.png)
 
 ```objective-c
 主要方法：
@@ -1173,7 +1175,7 @@ bucket_t bucket = buckets[(long long)@selector(personTest) & buckets._mask];
 
 ##### **3、消息转发**
 
-![消息转发](/Users/wangjl/Downloads/iOS知识点总结/image/消息转发.png)
+!![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/objc_msgSend_2.png)![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/objc_msgSend_3.png)
 
 ```objective-c
 forwardingTargetForSelector://该方法可能是类方法也可能是实例方法，具体看未找到的方法是类方法还是实例方法
@@ -1208,6 +1210,12 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 }
 
 ```
+
+总结objc_msgSend流程：
+
+1. 先走消息发送（顺序见**cache_t**部分讲解）,若未找到方法实现，走第2步。注意：如果方法接受者是nil，不会崩溃。
+2.  动态方法解析，调用**resolveInstanceMethod**/**resolveClassMethod**方法，并且在方法里给未找到的方法新增了方法实现，则会调用新的方法实现，若未新增方法实现则进行第3步。
+3. 消息转发，调用**forwardingTargetForSelector**，如果返回不为nil，则让返回对象去执行对应的方法；返回为nil，则调用方法签名**methodSignatureForSelector**，如果方法签名返回不为nil，则会调用**forwardInvocation**（方法里可以做任何事情），如果方法签名返回nil，则崩溃，控制台打印**unrecognized selector sent to instance xxxxxx**。
 
 #### super
 
