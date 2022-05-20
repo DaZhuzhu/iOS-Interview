@@ -1,4 +1,4 @@
-#   iOS知识点总结
+#     iOS知识点总结
 
 ## 一、runloop
 
@@ -1120,7 +1120,9 @@ bucket_t bucket = buckets[(long long)@selector(personTest) & buckets._mask];
 
 **三个阶段：**
 
-##### **1、消息发送阶段（同cache_t章节讲到的方法调用顺序）**
+##### **1、消息发送阶段**
+
+同cache_t章节讲到的方法调用顺序
 
 ![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/objc_msgSend_1.png)
 
@@ -1400,27 +1402,53 @@ Category： 运行时将分类的信息（属性列表、方法列表、协议�
 
 ### 2、load
 
-load方法在runtime加载类、分类时被调用，且只调用一次，不管该类是否被调用/引用。
+调用时机：load方法在**runtime**加载类、分类时被调用，且只调用一次，不管该类是否被调用/引用。
 
-调用顺序：**先调用项目中所有类的load方法（按编译顺序），才会调用所有分类的load方法（按编译顺序）；**而且class的load调用顺序为：**父类laod-->子类load-->再按照category的编译顺序调用category的load方法**。
+调用顺序：
+
+1、优先调用类的load
+
+a.先编译的类，先调用；
+
+b.调用子类load之前，先调用父类load。
+
+2、再调用分类load
+
+按照编译顺序调用。
 
 ```c++
-//解答：load方法底层调用是从一个loadable_classes数组中取类对象，然后取出类对象的load方法直接进行调用（(*load_method)(cls.SEL_load)）,而loadable_classes中类对象的存储顺序就是load的调用顺序；runtime加载类、分类时，会将类和分类添加到loadable_classes数组中，而且添加顺序是先添加其父类然后再添加本类，然后再按照编译顺序添加分类到loadable_classes中。所以，load的调用顺序如上所述。
+//解答：load方法底层调用是从一个loadable_classes数组中取类对象，然后取出类对象的load方法直接进行调用（(*load_method)(cls,SEL_load)）,而loadable_classes中类对象的存储顺序就是load的调用顺序；runtime加载类、分类时，会将类和分类添加到loadable_classes数组中，而且添加顺序是先添加其父类然后再添加本类，然后再按照编译顺序添加分类到loadable_classes中。所以，load的调用顺序如上所述。
 ```
 
-**问题：为什么类对象的load方法没有被分类取代？（即分类实现了load方法，但是程序加载时类对象的load方法还可以被调用）**
+**问题：为什么类对象的load方法没有被分类/子类取代？（即分类/子类实现了load方法，但是程序加载时类对象的load方法还可以被调用）**
 
 ```c++
-//解答：load方法不是遍历去取方法，而是直接从类对象中取出该方法地址，然后去调用。
+//解答：load方法的调用是直接从对象中取出该函数指针，然后去调用，并不是通过objc_msgSend（objc_msgSend找到方法之后就不再继续找）。
 load_method_t load_method = (load_method_t)classes[i].method;
 
 //而其他的方法，则是通过下面方式去调用方法
 objc_msgSend([XXX class],@selector(test));
 //先找到对应的类（元类），然后从类（元类）方法列表里去取该方法，顺序为：分类->类；如果没找到该方法，则从类（元类）父类中寻找该方法...
 
+//注意：手动调用load方法时（例如[person load]），调用顺序同objc_msgSend ，先从分类找，然后从子类找，然后再往上找父类...
+
 ```
 
-问题2：
+load方法可以继承，但一般情况下不会手动去调用load方法，都是让系统自动调用。
+
+### 3、initialize
+
+调用时机：**类**第一次接受到消息的时候调用，例如[Person alloc]；调用机制是objc_msgSend。
+
+调用顺序：先调用父类initialize（前提是父类没有调用过initialize），再调用子类initialize。
+
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/initialize.png)
+
+initialize和load方法区别：
+
+- 调用时机不同。load是在runtime动态加载类对象的时候调用（只调用一次）；initialize是在类第一次接受消息时调用，每个类只会initialize一次（父类的initialize可能执行多次）
+- 调用机制不同。load是直接找函数地址然后调用，只要类/分类实现了load，则所有的load方法都会被调用；initialize遵循objc_msgSend调用机制
+- 调用顺序不同。load：1、a.先编译的类，先调用；b.调用子类load之前，先调用父类load。2、再调用分类load按照编译顺序调用。initialize：1、先调用父类；2、再调用子类（如果子类没有实现initialize，则最终调用的是父类的initialize，因为遵循的是objc_msgSend机制）
 
 ## ...UI（待更新）
 
