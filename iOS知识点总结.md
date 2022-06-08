@@ -1028,11 +1028,13 @@ union isa_t{
 
 ![位域](/Users/wangjl/Downloads/iOS知识点总结/image/位域.png)
 
-### 5、class
+### 5、class![isa_superclass](/Users/wangjl/Desktop/iOSInterview/image/isa_superclass.png)
 
 ![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/isa_superclass.png)
 
 ![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/class_struct.png)
+
+![class_struct](/Users/wangjl/Desktop/iOSInterview/image/class_struct.png)
 
 **isa**：等价于is kind of
 
@@ -1084,11 +1086,20 @@ struct method_t{
   - (int)test:(int)age height:(float)height;
   ios中函数的每个方法都隐藏了两个参数：id:(id)self _cmd:(SEL)_cmd，所以上述方法完整写法就是：
   - (int)test:(id)self _cmd:(SEL)_cmd age:(int)age height:(float)height;
-  上面的方法type值即：i24@0:8i16f20 //其中i代表返回值为int类型；24代表方法参数共占24个字节;@代表参数类型为id，0代表内存从第0个字节开始计算；“：”代表参数为SEL，8代表内存从第8个字节开始计算；....
+  上面的方法type值即：i24@0:8i16f20 //其中i代表返回值为int类型；24代表方法参数共占24个字节;@代表参数类型为id，0代表内存从第0个字节开始计算；“：”代表参数为SEL，8代表 内存从第8个字节开始计算；....
   iOS提供了一个叫作@encode的指令，可以将具体的类型表示为字符串编码
   ```
 
   ![type encoding](/Users/wangjl/Downloads/iOS知识点总结/image/type encoding.png)
+  
+  **小tip：每一个方法都默认包含两个参数：self和_cmd**
+  
+  ```objective-c
+  - (void)test;
+  //上述方法包含了两个参数：self 和 _cmd(_cmd=@selector(test))所以同下
+  - (void)test:(id)self _cmd(SEL)cmd;//self表示方法所在的类实例对象，cmd表示当前的selector
+  ```
+  
   
 
 #### cache_t 
@@ -1303,7 +1314,7 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 ```objective-c
 + (void)load{
     Method orignalMethod = class_getInstanceMethod(self,@selector(viewDidLoad));
-    Method newMethod = class_getInstanceMethod(self,@selector(newViewDidLaod));
+    Method newMethod = class_getInstanceMethod(self,@selector(newViewDidLoad));
     
     BOOL isAddMethod = class_addMethod(self, @selector(viewDidLoad), method_getImplementation(newMethod), method_getTypeEncoding(newMethod));
     if (isAddMethod) {
@@ -1313,12 +1324,14 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
     }
 }
 
-- (void)newViewDidLaod{
+- (void)newViewDidLoad{
     NSLog(@"newViewDidLaod");
+  [self newViewDidLoad];
 }
 
 //tips：
 //method_exchangeImplementations方法会把方法的imp（方法实现）交换。注意：并不会交换"方法缓存"中的imp，而是将方法缓存全部清空
+//如果是交换完方法之后还要继续执行被交换的方法实现，那么需要在新的方法实现中调用新的方法名，例如[self newViewDidLoad]
 ```
 
 ##### ![runtime-method-api](/Users/wangjl/Downloads/iOS知识点总结/image/runtime-method-api.png)
@@ -1406,15 +1419,15 @@ Category： 运行时将分类的信息（属性列表、方法列表、协议�
 
 调用顺序：
 
-1、优先调用类的load
+1. 优先调用类的load
 
-a.先编译的类，先调用；
+   a.先编译的类，先调用；
 
-b.调用子类load之前，先调用父类load。
+   b.调用子类load之前，先调用父类load。
 
-2、再调用分类load
+2. 再调用分类load
 
-按照编译顺序调用。
+   按照编译顺序调用。
 
 ```c++
 //解答：load方法底层调用是从一个loadable_classes数组中取类对象，然后取出类对象的load方法直接进行调用（(*load_method)(cls,SEL_load)）,而loadable_classes中类对象的存储顺序就是load的调用顺序；runtime加载类、分类时，会将类和分类添加到loadable_classes数组中，而且添加顺序是先添加其父类然后再添加本类，然后再按照编译顺序添加分类到loadable_classes中。所以，load的调用顺序如上所述。
@@ -1449,6 +1462,47 @@ initialize和load方法区别：
 - 调用时机不同。load是在runtime动态加载类对象的时候调用（只调用一次）；initialize是在类第一次接受消息时调用，每个类只会initialize一次（父类的initialize可能执行多次）
 - 调用机制不同。load是直接找函数地址然后调用，只要类/分类实现了load，则所有的load方法都会被调用；initialize遵循objc_msgSend调用机制
 - 调用顺序不同。load：1、a.先编译的类，先调用；b.调用子类load之前，先调用父类load。2、再调用分类load按照编译顺序调用。initialize：1、先调用父类；2、再调用子类（如果子类没有实现initialize，则最终调用的是父类的initialize，因为遵循的是objc_msgSend机制）
+
+### 4、关联对象
+
+利用的是runtime
+
+分类里声明属性的话，只会生成方法声明，不会生成成员变量和方法实现！
+
+分类里不能直接添加属性，但是可以间接添加：
+
+```objective-c
+//例如 ：在Person的Person+WJL分类里添加属性name
+//.h文件声明属性 包含头文件 #import <objc/runtime.h>
+@property (nonatomic,copy) NSString *name;
+
+//.m文件声明get和set方法
+- (void)setName:(NSString *)name{
+  	/*
+  	变量1：要关联的对象
+  	变量2：通过一个key来进行关联，传的是指针，可以传@selector(name)，也可以传其他指针，例如const void *NameKey = &NameKey,然后传NameKey
+  	变量3：被关联的对象
+  	变量4：修饰符
+  	修饰符对应关系：
+  	OBJC_ASSOCIATION_ASSIGN---assign
+  	OBJC_ASSOCIATION_RETAIN_NONATOMIC---strong,nonatomic
+  	OBJC_ASSOCIATION_COPY_NONATOMIC---copy,nonatomic
+  	OBJC_ASSOCIATION_RETAIN---strong,atomic
+  	OBJC_ASSOCIATION_copy---copy,atomic
+  	*/
+  	objc_setAssociatedObject(self,@selector(name),name,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (void)name{
+  //_cmd为本方法地址（每个方法都默认会传self和_cmd两个参数）
+  return objc_getAssociatedObject(self,_cmd);
+}
+
+```
+
+关联对象并不是把属性放在类的属性列表中。
+
+
 
 ## ...UI（待更新）
 
