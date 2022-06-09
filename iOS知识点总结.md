@@ -1479,9 +1479,9 @@ initialize和load方法区别：
 //.m文件声明get和set方法
 - (void)setName:(NSString *)name{
   	/*
-  	变量1：要关联的对象
+  	变量1：被关联的对象
   	变量2：通过一个key来进行关联，传的是指针，可以传@selector(name)，也可以传其他指针，例如const void *NameKey = &NameKey,然后传NameKey
-  	变量3：被关联的对象
+  	变量3：关联对象
   	变量4：修饰符
   	修饰符对应关系：
   	OBJC_ASSOCIATION_ASSIGN---assign
@@ -1498,9 +1498,143 @@ initialize和load方法区别：
   return objc_getAssociatedObject(self,_cmd);
 }
 
+//补充
+//移除单个关联对象:将value传nil即可
+objc_setAssociatedObject(id object,void *key,nil,objc_AssociationPolicy policy);
+//移除所有关联对象：
+objc_removeAssociatedObjects(id object);
+
 ```
 
-关联对象并不是把属性放在类的属性列表中。
+**原理：**
+
+关联对象并不是把属性放在类的属性列表中，而是存储在全局的统一的一个AssociationsManager中。
+
+![association](/Users/wangjl/Desktop/iOSInterview/image/association原理.png)
+
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/association原理.png)
+
+## 七、block
+
+### 1、本质
+
+- block是个oc对象，内部也有一个isa指针
+- block内部封装了函数调用以及函数调用环境
+
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/block内部结构2.png)
+
+![block内部结构2](/Users/wangjl/Desktop/iOSInterview/image/block内部结构2.png)
+
+![block内部结构](/Users/wangjl/Desktop/iOSInterview/image/block内部结构.png)
+
+![image](https://github.com/DaZhuzhu/iOS-Interview/blob/master/image/block内部结构.png)
+
+
+
+### 2、变量捕获
+
+**auto**：自动变量，c语言函数默认在声明局部变量时，会默认用auto来修饰；其含义为：离开作用域会自动被销毁
+
+例如：int age = 10;其实内部为 auto int age = 10；只不过auto可以省略，默认给添加了auto修饰。
+
+| 变量类型 | 访问方式                           | 是否捕获到block内部          |
+| -------- | ---------------------------------- | ---------------------------- |
+| 局部变量 | auto：值传递<br />static：指针传递 | auto：捕获<br />static：捕获 |
+| 全局变量 | 直接访问                           | 不捕获                       |
+
+```objective-c
+//例子
+//1.局部变量：
+int age = 10;
+void (^blockName)(void) = ^{
+		NSLog(@"age is %d",age);
+};
+age = 20;
+blockName();//打印结果为10
+
+//2.静态变量
+static int age = 10;
+void (^blockName)(void) == ^{
+			NSLog(@"age is %d",age);
+};
+
+age = 20;
+blockName();//打印结果为20
+
+//3.全局变量
+//定义全局变量age int age（注意：不是定义一个property属性）
+age = 10;
+void (^blockName)(void) = ^{
+     NSLog(@"age is %d",age);
+};
+age = 20;
+blockName();//打印结果为20
+```
+
+**说明：局部变量之所以被捕获到block内部，是因为block可能存在被跨函数访问的使用场景**。例如：
+
+```objective-c
+void (^blockName)(void);
+
+- (void)test{
+    int age  = 10;
+    blockName = ^{
+        NSLog(@"age is %d",age);
+    };
+    age = 20;
+}
+
+- (void)executeTest{
+  	[self test];
+  	blockName();//在block创建函数外调用block，由于block内部存在的变量是test函数的局部变量，所以需要block捕获局部变量到block内部，这样才可以使用该变量
+}
+```
+
+问题1：下面的函数中，self会被blockName捕获吗？
+
+```objective-c
+- (void)test{
+    void (^blockName)(void) = ^{
+        NSLog(@"self is %@",self);
+    };
+}
+
+//答案：会。因为每一个方法都默认包含两个参数：self和_cmd，参数为局部变量，局部变量会被捕获
+```
+
+问题2：下面的函数中，_name会被blockName捕获吗？
+
+```objective-c
+@property (nonatomic, copy) NSString *name;
+- (void)test1{
+    void (^blockName)(void) = ^{
+        NSLog(@"name is %@",_name);
+    };
+}
+
+- (void)test2{
+    void (^blockName)(void) = ^{
+        NSLog(@"name is %@",self.name);
+    };
+}
+
+//答案：都会。因为self被捕获了，所以通过self获取的变量也相应的被捕获（注意区分【2.变量捕获】部分的例子中的第三种情况）
+```
+
+### 3、block的类型
+
+block有三种类型，可以通过调用class方法或者isa指针查看具体类型，最终都是继承自NSBlock类型
+
+- ____NSGlobalBlock____ (_NSConcreteGlobalBlock)：没有访问auto变量（局部变量）；存放在.data区
+- ____NSStackBlock____(NSConcreteStackBlock)：访问了auto变量；存放在栈上
+- ____NSMallocBlock____(NSConcreteMallocBlock)：____NSStackBlock____调用copy操作后变为MallocBlock类型；存放在堆上
+
+![应用程序内存分配](/Users/wangjl/Desktop/iOSInterview/image/应用程序内存分配.png)
+
+- 程序区域.text区：存放代码
+- 数据区域.data区：存放全局变量、类对象（[Person class]）等
+- 堆：动态分配内存，比如alloc出来的对象，[Person alloc]。需要程序员申请内存，以及释放内存
+- 栈：系统自动分配内存并释放内存。存放局部变量
 
 
 
@@ -1517,7 +1651,7 @@ initialize和load方法区别：
 
 **（插播一条新闻：iPhone12状态栏高度是47，导航栏高度是44+47=91；iPhonex是44，导航栏是44+44=88）**
 
-## ...block（待更新）
+## 
 
 ## ...性能优化（待更新）
 
