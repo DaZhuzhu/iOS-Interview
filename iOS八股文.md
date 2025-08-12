@@ -1806,7 +1806,7 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 
 ## 五、KVC
 
-**概念：**Key-Value-Coding，KVC是NSObject提供的一种通过字符串间接访问对象属性的机制，允许运行时动态地设置和获取对象的属性值。
+**概念：**KVC（Key-Value Coding）是苹果提供的一种机制，允许开发者通过字符串（键）间接访问对象的属性和成员变量。它的核心方法是`valueForKey:`和`setValue:forKey:`。
 
 **setValue:forKey:调用顺序**
 // 假设调用 [obj setValue:value forKey:@"name"]
@@ -1825,11 +1825,6 @@ _name
 _isName  
 name
 isName
-
-
-![setvalueForKey原理](/Users/xiaozhuzhu/Documents/work/iOS资料/image/setvalueForKey原理.png)
-
-注意：图例是给**成员变量**赋值，如果是给一个**属性**赋值，且该属性未被声明，则不会出现崩溃的（系统内部自动生成setter和getter方法）。
 
 **Tips：KVC可以触发KVO。**
 
@@ -1855,7 +1850,6 @@ _name
 _isName
 name  
 isName
-![valueforkey原理图](/Users/xiaozhuzhu/Documents/work/iOS资料/image/valueforkey原理图.png)
 
 ## 六、category
 
