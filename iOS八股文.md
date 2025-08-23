@@ -4,7 +4,7 @@
 
 ### 1、概念及作用
 
-**概念**：RunLoop（运行循环）是 iOS/macOS 开发中的**事件处理机制**，用于管理和调度线程的任务（如触摸事件、定时器、网络回调等），确保线程在有任务时执行，无任务时休眠，避免资源浪费。底层是基于 **CFRunLoop** 实现的，CFRunLoop内部有个 do while 方法来实现runloop。
+**概念**：RunLoop（运行循环）是 iOS/macOS 开发中的**事件处理机制**，用于管理和调度线程的任务（如触摸事件、定时器、网络回调等），确保线程在有任务时执行，无任务时休眠，避免资源浪费。底层是基于 **CFRunLoop** 实现的，CFRunLoop 内部有个 do while 方法来实现 runloop。
 
 ```objective-c
 while (1) {
@@ -25,15 +25,15 @@ while (1) {
 
   面试题：你了解runloop吗？项目中哪些地方用到了？
   
-  回答：runloop是事件循环机制，他能监听并处理各种事件，例如触摸事件、定时器等，并能保证程序持续运行而不退出。用到的地方，定时器，检测fps值。
+  回答：runloop 是事件循环机制，他能监听并处理各种事件，例如触摸事件、定时器等，并能保证程序持续运行而不退出。用到的地方，定时器，检测 fps 值。
 
 ### 2、和线程的关系
 
-和线程一一对应，其关系保存在一个全局的字典里，key为线程（pthread_t），value为runloop（CFRunLoopRef）。
+和线程一一对应，其关系保存在一个全局的字典里，key 为线程（pthread_t），value 为 runloop（CFRunLoopRef）。
 
-主线程的runloop系统自动创建。子线程中的runloop在第一次获取的时候创建，**当线程退出时，runloop销毁**。
+主线程的 runloop 系统自动创建。子线程中的runloop在第一次获取的时候创建，**当线程退出时，runloop销毁**。
 
-**子线程中默认没有runLoop，除非主动去获取**
+**子线程中默认没有 runLoop，除非主动去获取**
 
 ```objective-c
 例：
@@ -59,7 +59,7 @@ dispatch_async(dispatch_get_global_queue(0,0),^{
 
 
 
-### 3、runloop的接口
+### 3、runloop 的接口
 
 在CoreFoundation里有五个类：
 
@@ -2748,27 +2748,29 @@ exten void _objc_autoreleasePoolPrint(void);
 
 对象会将弱引用存到一个叫做“weak table”的哈希表里，以对象的地址为 key，value 是这个对象的 weak 指针的地址集合。当对象要销毁时，runtimer会取出其中的weak table，把里面存储的弱引用的空间释放，并将他们的指针置为nil。
 
-### 7、autoreleasepool
+### 7、自动释放池 autoreleasepool
+
+自动释放池是 iOS 中用于管理对象生命周期的内存管理机制，核心作用是**延迟释放 “自动释放对象”**：通过 `@autoreleasepool` 代码块定义作用范围，在此范围内被标记为 `autorelease` 的对象会被加入池中，当代码块结束（池销毁）时，池会对内部所有对象统一发送 `release` 消息，实现内存的自动回收。
+
+“延迟释放”，是因为被加入自动释放池的对象，**不会在调用 `autorelease（ARC 下 autoreleasePool 内创建对象时默认调用 autorelease）` 的瞬间被释放**：比如你调用 `[obj autorelease]` 时，对象只是被 “暂存” 到池中，释放行为会被 “延迟” 到池销毁的时机（比如 `@autoreleasepool` 代码块结束、主线程 RunLoop 循环结束），此时池才会统一遍历内部对象并发送 `release` 消息。
 
 ```objective-c
-//内部是一个结构体。 
- Struct __AtAutoreleasePool{ 
-  
-      __AtAutoreleasePool() { 
-           atautoreleasePoolObj = objc_autoreleasePoolPush(); 
-      }
+// 开发者编写的代码
+@autoreleasepool {
+    // 自动释放对象的操作
+}
 
-      __AtuAutoreleasePool(){ 
-           autoreleasePoolPop(atautoreleasePoolObj); 
-      }
-     Void *atautoreleasePoolObj;
-};
-//push 操作是为了让对象入栈，pop 操作是把对象移除。
+// 编译器转换后的等效代码（伪代码）
+void *token = objc_autoreleasePoolPush(); // 创建池，返回令牌
+{
+    // 自动释放对象的操作
+}
+objc_autoreleasePoolPop(token); // 销毁池，释放对象
 ```
 
 #### 1.AutoreleasePoolPage
 
-来管理autoreleasepool里的对象，每个AutoreleasePoolPage占4096个字节，除了存放自己内部的成员变量，剩余的空间用来存放autorelease对象的地址。每个autoreleasepool里可能有多个AutoreleasePoolPage，因为pool内的autorelease对象可能有多个，导致一个page存储不下那么多对象
+来管理 autoreleasepool 里的对象，每个 AutoreleasePoolPage 占 4096 个字节，除了存放自己内部的成员变量，剩余的空间用来存放autorelease 对象的地址。每个 autoreleasepool 里可能有多个  AutoreleasePoolPage，因为 pool 内的 autorelease 对象可能有多个，导致一个 page 存储不下那么多对象
 
 ```objective-c
 //AutoreleasePoolPage内部结构：
@@ -2791,7 +2793,7 @@ exten void _objc_autoreleasePoolPrint(void);
     
 ```
 
-autoreleasepool只要调用调用autoreleasepoolpush的操作，首先会让一个POOL_BOUNDARY的值入栈，并返回该值的地址值。
+autoreleasepool 只要调用调用 autoreleasepoolpush （创建池）的操作，首先会让一个 POOL_BOUNDARY 的值入栈，并返回该值的地址值。
 
 ```objective-c
 //1
@@ -2822,6 +2824,42 @@ int main(int argc, char * argv[]) {
 //上面的pool内一共有一个page，一个page里有三个POOL_BOUNDARY入栈。
 
 ```
+
+`POOL_BOUNDARY` 是一个特殊的空指针（`nil`），其核心作用是**标记一个自动释放池的 “起始边界”**。当创建一个自动释放池时（无论是外层还是内层），系统会在当前 `AutoreleasePoolPage` 中插入一个 `POOL_BOUNDARY`，作为这个池的 “起点”。
+
+例如，嵌套的自动释放池会产生多个 `POOL_BOUNDARY`：
+
+```objective-c
+// 外层自动释放池
+@autoreleasepool { 
+    // 插入 外层 POOL_BOUNDARY（标记外层池的起点）
+    id obj1 = [NSObject new];
+    [obj1 autorelease]; // 加入外层池
+    
+    // 内层自动释放池
+    @autoreleasepool { 
+        // 插入 内层 POOL_BOUNDARY（标记内层池的起点）
+        id obj2 = [NSObject new];
+        [obj2 autorelease]; // 加入内层池
+    } 
+    // 内层池销毁时，从当前栈顶遍历到“内层 POOL_BOUNDARY”，释放 obj2
+} 
+// 外层池销毁时，从当前栈顶遍历到“外层 POOL_BOUNDARY”，释放 obj1
+```
+
+在这个例子中：
+
+- 外层池创建时，插入**第一个 `POOL_BOUNDARY`**（外层边界）；
+- 内层池创建时，插入**第二个 `POOL_BOUNDARY`**（内层边界）；
+- 两个 `POOL_BOUNDARY` 共同存在于 `AutoreleasePoolPage`（或其链表）中，用于区分不同池的范围。
+
+**关键结论：**
+
+- **每个自动释放池（无论内外层）都对应一个独立的 `POOL_BOUNDARY`**，用于标记自身的边界；
+- 嵌套的自动释放池会产生多个 `POOL_BOUNDARY`，数量等于嵌套的池层数；
+- 释放时，系统通过查找 “当前池对应的 `POOL_BOUNDARY`” 来确定释放范围，确保只释放当前池内的对象，不影响其他池。
+
+因此，“自动释放池” 与 `POOL_BOUNDARY` 是**一一对应**的关系，有多少个 `@autoreleasepool` 代码块，就会有多少个 `POOL_BOUNDARY`。
 
 #### 2、MRC中调用autorelease的对象什么时候释放
 
@@ -3123,13 +3161,11 @@ TLS 和 SSL 的主要区别在于以下几个方面：
 
 #### **三次握手**
 
-```json
 1、客户端向服务端发送一个请求报文（SYN），报文中包含自己的初始序列号（client_isn），进入SYN_SEND状态
 2、服务端收到客户端的请求报文后，会向客户端发送一个确认报文（SYN+ACK），报文中包含自己的初始序列号（服务端随机生成server_isn）和确认应答号（client_isn + 1），并进入SYN_RECIEVED状态
 3、客户端收到服务端的报文后，会再向服务端发送一个确认报文，其中包含确认应答号（server_isn + 1），并进入established状态；服务端收到应答后，也进入了ESTABLISHED状态（已连接状态）
 
 P.S. 第三次握手是可以携带传输数据的，前两次握手不能携带传输数据。
-```
 
 为什么要三次握手而不是两次？
 **三次握手是为了防止已失效的连接请求报文突然又传送到服务器，从而导致错误和资源浪费。**
@@ -3254,10 +3290,10 @@ TCP 的三次握手就是为了在这样一个不可靠的网络基础上，建�
 
 **jssdk创建一个字典来管理api方法名和执行函数的映射关系，注册api方法时，将方法名作为key，block函数作为value。**
 
-1. js调用iOS时，webview收到 decidePolicyForNavigationAction 代理回调，在回调中，iOS会再调用js的一个统一的方法，该方法会返回js的一些调用信息，比如方法名，参数，根据方法名在本地维护的映射字典中找到block函数，
+1. js 调用 iOS 时，webview 收到 decidePolicyForNavigationAction 代理回调，在回调中，iOS 会再调用 js 的一个统一的方法，该方法会返回 js 的一些调用信息，比如方法名、参数，ios 根据方法名在本地维护的映射字典中找到 block 函数，
 找到就执行。
 
-2. 如果js需要返回值，js那边会定义一个回调函数（比如_handleMessageFromObjC），当js调用iOS时，会给iOS传入一个callbackId，iOS执行完函数时，会再调用js定义好的回调函数（iOS调用js使用- (void)evaluateJavaScript:(NSString *)javaScriptString completionHandler:(WK_SWIFT_UI_ACTOR void (^ _Nullable)(_Nullable id, NSError * _Nullable error)，javaScriptString中拼接方法名和数据，如果是媒体数据，则是base64数据)completionHandler函数），并将返回值和callbackId一并返回，js根据callbackId来确定自己需要的返回数据。
+2. 如果 js 需要返回值，js 那边会定义一个回调函数（比如 _handleMessageFromObjC），当 js 调用 iOS 时，会给 iOS 传入一个callbackId，iOS 执行完函数时，会再调用 js 定义好的回调函数（iOS 调用 js 使用 - (void)evaluateJavaScript:(NSString *)javaScriptString completionHandler:(WK_SWIFT_UI_ACTOR void (^ _Nullable)(_Nullable id, NSError * _Nullable error)，javaScriptString 中拼接方法名和数据，如果是媒体数据，则是 base64 数据) completionHandler 函数），并将返回值和 callbackId 一并返回，js 根据 callbackId 来确定自己需要的返回数据。
 
 
 问题：
