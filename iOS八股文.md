@@ -1496,8 +1496,6 @@ bucket_t bucket = buckets[(long long)@selector(personTest) & buckets._mask];
 
 ##### **2、动态方法解析**  
 
-![objc_msgSend_2](/Users/xiaozhuzhu/Documents/work/iOS资料/image/objc_msgSend_2.png)
-
 ```objective-c
 主要方法：
   + (BOOL)resolveInstanceMethod:(SEL)sel;//实例对象动态方法解析
@@ -1588,8 +1586,6 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 3. 消息转发，调用**forwardingTargetForSelector**，如果返回不为nil，则让返回对象去执行对应的方法；返回为nil，则调用方法签名**methodSignatureForSelector**，如果方法签名返回不为nil，则会调用**forwardInvocation**（方法里可以做任何事情），如果方法签名返回nil，则崩溃，控制台打印**unrecognized selector sent to instance xxxxxx**。
 
 #### super
-
-![super](/Users/wangjl/Downloads/iOS知识点总结/image/super.png)
 
 ```objective-c
 [self class]方法最终都是走到了NSObject的class方法，即：
@@ -1687,10 +1683,6 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 
 
 #### 2、字典转模型
-
-![runtime动态获取:设置成员变量例子](/Users/xiaozhuzhu/Documents/work/iOS资料/image/runtime动态获取:设置成员变量例子.png)
-
-![runtime动态获取变量](/Users/xiaozhuzhu/Documents/work/iOS资料/image/runtime动态获取变量.png)
 
 ```objective-c
 #import "NSObject+ModelFactory.h"
@@ -1900,8 +1892,6 @@ isName
 - 在程序运行的时候，runtime会将Category的数据合并到类信息中（类对象、元类对象中）
 - 分类的实现原理是将category中的方法，属性，协议数据放在category_t结构体中，然后将结构体内的方法/属性/协议列表拷贝到类对象的对应列表中。 （插入最前面）
 
-![_category_t](/Users/xiaozhuzhu/Documents/work/iOS资料/image/_category_t.png)
-
 **如果类对象和分类对象有相同的方法实现，则会调用分类的方法实现，不会调用类对象里的方法实现。（类似重写，但其实是假的重写，因为类对象的方法实现并没有被抹去）**
 
 **最后编译的分类，其方法列表会放在对应的类的methods的最前面，其他分类（类对象）的方法列表后移（类对象的方法列表会移到最后），这也是为什么同样的方法实现，会优先调用分类的方法实现，因为它在类的methods最前面。**
@@ -2027,12 +2017,6 @@ objc_removeAssociatedObjects(id object);
 
 - block是个oc对象，内部也有一个isa指针
 - block内部封装了一段代码块以及代码块的调用环境
-
-![block内部结构2](/Users/xiaozhuzhu/Documents/work/iOS资料/image/block内部结构2.png)
-
-![block内部结构](/Users/xiaozhuzhu/Documents/work/iOS资料/image/block内部结构.png)
-
-
 
 ### 2、变量捕获
 
