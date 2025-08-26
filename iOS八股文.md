@@ -1110,7 +1110,30 @@ pthread_rwlock_destroy(&lock);
 
 ### 6、线程保活
 
-使用**[[NSRunLoop CurrentRunLoop] run]**或者**[[NSRunLoop CurrentRunLoop] runmode：beforedate：]**来让线程保活
+### 基于 RunLoop 的保活（最常用）
+
+RunLoop 是线程的 “事件循环机制”，若能让线程的 RunLoop 持续运行，即可实现保活。核心步骤：
+
+1. **为线程创建并配置 RunLoop**
+   线程默认无 RunLoop，需主动获取（`[NSRunLoop currentRunLoop]`），并添加 “输入源”（Source）或 “定时源”（Timer）——RunLoop 若无可处理的事件源，会直接退出。
+
+   - 通常添加一个 “空的 Port” 作为 Source（无需实际通信，仅维持 RunLoop 运行）：
+
+     ```objective-c
+     NSThread *thread = [[NSThread alloc] initWithTarget:self selector:@selector(threadMain) object:nil];
+     [thread start];
+     
+     // 线程主函数
+     - (void)threadMain {
+         @autoreleasepool {
+             // 创建Port并添加到RunLoop
+             NSPort *port = [NSPort port];
+             [[NSRunLoop currentRunLoop] addPort:port forMode:NSDefaultRunLoopMode];
+             // 启动RunLoop（会持续循环，直到被手动停止）
+             [[NSRunLoop currentRunLoop] run];
+         }
+     }
+     ```
 
 ### 7、应用实例
 
@@ -3272,24 +3295,38 @@ TCP 的三次握手就是为了在这样一个不可靠的网络基础上，建�
 
 
 
-## 十四、UI（待更新)
+## 十四、UI（更新中）
 
 ### **1、CAlayer和UIView的区别和联系**
 
-**联系：**UIView 和 CALayer 是相互依赖的关系。UIView 依赖于 calayer 提供的内
-容，CALayer 依赖 uivew 提供的容器来显示绘制的内容。归根到底 CALayer 是
-这一切的基础，如果没有 CALayer，UIView 自身也不会存在，UIView 是一个
-特殊的 CALayer 实现，添加了响应事件的能力。
+1. **核心职责不同**
 
-**区别：**1、CALayer不可以响应事件，UIView可以响应事件。2、CALayer的父类是NSObject，UIView的父类是UIResponder。
+- **UIView**：是 iOS 界面的基础组件，主要负责**用户交互管理**和**视图层级控制**。它继承自`UIResponder`，能响应触摸、手势等用户事件，同时管理子视图的布局和生命周期。
+- **CALayer**：属于 Core Animation 框架，主要负责**内容渲染**和**视觉呈现**。它专注于绘制内容（如颜色、图片、形状等）、设置视觉属性（如阴影、圆角、边框），以及处理动画效果。
 
-**（插播一条新闻：iPhone12状态栏高度是47，导航栏高度是47+44=91；iPhonex是44，导航栏是44+44=88）**
+2. **继承关系与事件处理**
 
-## 
+- **UIView**：继承自`UIResponder`，因此具备事件响应能力（如`touchesBegan:withEvent:`等方法），可以处理用户交互。
+- **CALayer**：继承自`NSObject`，不具备事件响应能力，无法直接处理触摸等用户事件（但可以通过`hitTest:`等方法间接辅助判断点击区域）。
 
-注意：[self.view addSubView:view]会使view的引用计数加1，self.view强引用了view。
+3. **层级结构关联**
 
-## 
+- 每个`UIView`内部都包含一个根`CALayer`（通过`view.layer`属性访问），视图的视觉内容实际由这个根图层绘制。
+- 当添加子视图（`addSubview:`）时，UIView 会自动为子视图的根图层添加到自身根图层的子图层中（即`layer.addSublayer(subview.layer)`）。因此，**视图层级与图层层级是一一对应的**，但管理方式不同（视图用`UIView`的方法，图层用`CALayer`的方法）。
+
+4. **动画与渲染**
+
+- **渲染**：所有视觉内容最终都通过`CALayer`渲染到屏幕上，`UIView`本身不负责绘制，其`draw(_ rect: CGRect)`方法本质是为关联的`layer`提供绘制内容。
+- **动画**：Core Animation 的动画效果本质是作用于`CALayer`的属性（如`position`、`opacity`），`UIView`的动画方法（如`UIView.animate(withDuration:)`）本质是对`CALayer`动画的封装。
+
+5. **性能与使用场景**
+
+- 若仅需展示静态内容且无需交互（如复杂图形、渐变背景），直接使用`CALayer`会更轻量（减少`UIResponder`相关的内存开销）。
+- 若需要处理用户交互（如按钮、输入框），则必须使用`UIView`。
+
+**总结**
+
+简单来说，`UIView`是 “管理者”，负责交互和视图层级；`CALayer`是 “绘制者”，负责视觉呈现和动画。二者分工协作，共同构成 iOS 的界面系统。这种职责分离的设计，既保证了交互逻辑的清晰，也优化了渲染性能。
 
 ## 十五、JS 交互实战
 
@@ -3415,14 +3452,14 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
 
 ### 3、适用场景差异
 
-#### 静态库适合：
+**静态库适合：**
 
 1. **稳定少变的基础模块**（如加密算法、工具类）：避免动态库的运行时加载开销，提升启动速度。
 2. **体积较小的通用逻辑**（如日志工具）：过小的模块独立为动态库会因元数据开销 “得不偿失”。
 3. **第三方闭源 SDK**（如统计、支付 SDK）：通过静态库分发可避免签名和依赖问题，兼容性更好。
 4. **对启动速度敏感的核心模块**（如 App 初始化逻辑）：无运行时链接开销，减少启动耗时。
 
-#### 动态库适合：
+**动态库适合：**
 
 1. **频繁变动的业务模块**（如首页、商城）：独立编译可大幅提升开发和打包效率（尤其团队协作时）。
 2. **体积较大的独立模块**（如视频播放、地图）：避免静态库导致的可执行文件膨胀，降低启动压力。
@@ -3449,7 +3486,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
 5. 通过配置文件统一管理编译参数，将依赖以静态库或动态框架形式集成
 6. 生成 Podfile.lock 锁定版本，确保环境一致性
 
-### **2. 详细介绍：**
+**详细介绍：**
 
 CocoaPods 是 iOS 开发中常用的依赖管理工具，其工作原理可以从以下几个核心环节来理解：
 
@@ -3480,7 +3517,7 @@ CocoaPods 是 iOS 开发中常用的依赖管理工具，其工作原理可以�
 
 通过这种机制，CocoaPods 有效解决了 iOS 开发中第三方库的集成、版本管理和依赖冲突等问题，显著提升了开发效率。
 
-### **3. Podfile.lock** :
+**Podfile.lock** :
 
 是 CocoaPods 生成的版本锁定文件，其核心作用是**记录当前项目中所有依赖库的精确版本号**（包括直接依赖和间接依赖）。
 
