@@ -285,6 +285,56 @@ NSThread *t1 = [[NSThread alloc] initWithTarget:self selector:@selector(run:) ob
 
 #### 3、GCD
 
+**概念理解**：
+
+1. dispatch_async的职责：
+   ✅ 异步提交任务到指定队列
+   ❌ 不是"创建子线程"
+
+2. 线程的决定因素：
+   ✅ 目标队列的类型和绑定
+   ❌ 不是dispatch_async函数本身
+
+3. 主队列的特殊性：
+   ✅ 系统预定义，绑定到主线程
+   ✅ 所有任务都在主线程执行
+   ✅ 适合UI更新操作
+
+4. 为什么主队列任务在主线程：
+   ✅ 这是系统设计的队列-线程绑定关系
+   ✅ 不是dispatch_async的"副作用"
+
+**概念性总结**
+
+1. **主队列 (`dispatch_get_main_queue())`**：总是在主线程执行
+2. **全局并发队列**：通常在子线程执行
+3. **自定义串行队列**：通常在子线程执行
+4. **自定义并发队列**：通常在子线程执行
+
+**一个冷知识：**
+
+在GCD中，使用`dispatch_async`和并发队列（concurrent queue）时，任务会被提交到队列中，然后由GCD决定在哪个线程上执行。并发队列通常会在后台线程执行任务，但不一定是新线程，也可能是线程池中的某个线程。
+
+ 但是，需要注意的是，自定义的并发队列（通过`dispatch_queue_create`创建，类型为`DISPATCH_QUEUE_CONCURRENT`）并不会自动与任何特定的线程关联。GCD会从线程池中取出一个线程来执行这个block，**这个线程可能是后台线程，但有时也可能在主线程上执行**（尽管很少见，特别是在有多个任务时，通常不会在主线程上执行并发队列的任务，因为主线程是一个串行队列）。
+
+ 然而，实际上，对于自定义的并发队列，GCD通常会使用后台线程来执行任务。所以，一般情况下，这个block会在子线程（非主线程）上执行。
+
+```objective-c
+dispatch_async(dispatch_get_main_queue(), ^{
+  
+}) 中的Block在主线程执行，是因为：
+
+1. dispatch_async 不是开辟子线程，而是异步提交任务到指定队列
+
+2. 主队列是系统特殊设计的串行队列，永久绑定到主线程
+
+3. 任何提交到主队列的任务都会在主线程执行
+
+4. 这是iOS系统的队列-线程映射机制，不是dispatch_async的行为
+
+简单来说：dispatch_async只负责"异步提交"，"在哪个线程执行"完全由目标队列决定。主队列的任务在主线程执行，这是系统的设计，不是dispatch_async开辟了主线程。
+```
+
 死锁
 
 ```objective-c
@@ -452,6 +502,30 @@ dispatch_async(dispatch_get_global_queue(0,0),^{
 主队列：主队列的任务只在主线程中执行。特点：FIFO，先进先出；主队列如果发现主线程中有任务在执行，那么它会暂停主队列中的任务，等主线程空闲后再执行。
 
 ```objective-c
+/*
+iOS系统的队列-线程绑定机制：
+
+1. 主队列(Main Queue)：
+   - 系统预定义的特殊串行队列
+   - 永久绑定到主线程(Main Thread)
+   - 所有提交到主队列的任务都在主线程执行
+   - 这是系统设计，不是dispatch_async的行为
+
+2. 全局并发队列(Global Concurrent Queue)：
+   - 系统管理的线程池
+   - 任务可能在任何子线程执行
+   - 系统根据负载情况分配线程
+
+3. 自定义队列：
+   - 可以是串行或并发
+   - 系统从线程池中分配线程执行
+   - 通常在子线程，但不保证
+     */
+```
+
+
+
+```objective-c
 //异步并发：可能开多个线程
 dispatch_queue_t asyncConcurrentQueue = dispatch_queue_create("com.test.wjlAsyncCon", DISPATCH_QUEUE_CONCURRENT);
 for (int i = 0; i< 100 ;i++) {
@@ -469,9 +543,9 @@ for (int i = 0; i< 100 ;i++) {
 }
 
 //同步并发：不开线程 串行执行 主线程
-dispatch_queue_t syncSeriCon = dispatch_queue_create("com.test.wjlSyncCon", DISPATCH_QUEUE_CONCURRENT);
+dispatch_queue_t syncConQueue = dispatch_queue_create("com.test.wjlSyncCon", DISPATCH_QUEUE_CONCURRENT);
 for (int i = 0; i< 100 ;i++) {
-  dispatch_sync(syncSeriCon,^{
+  dispatch_sync(syncConQueue,^{
       NSLog(@"同步并行--i:%d 当前线程：%@",i,[NSThread currentThread]);//主线程
   });
 }

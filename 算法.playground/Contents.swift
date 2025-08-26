@@ -339,12 +339,12 @@ class Solution {
         return maxArea
     }
     
-    //    ******************** 给你一个链表的头节点 head 和一个整数 val ，请你删除链表中所有满足 Node.val == val 的节点，并返回 新的头节点 。
-    //实现：
+//  ************ 给你一个链表的头节点 head 和一个整数 val ，请你删除链表中所有满足 Node.val == val 的节点，并返回 新的头节点 。
+    
     func removeElements(_ head: ListNode?, _ val: Int) -> ListNode? {
-        var dmm: ListNode = ListNode(val: 0)
-        dmm.next = head
-        var currentNode = dmm
+        var dummy: ListNode = ListNode(0)
+        dummy.next = head
+        var currentNode = dummy
         
         while currentNode.next != nil {
             
@@ -355,7 +355,7 @@ class Solution {
             }
         }
         
-        return dmm.next
+        return dummy.next
     }
     
 }
