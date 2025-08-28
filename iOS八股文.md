@@ -2130,16 +2130,29 @@ objc_removeAssociatedObjects(id object);
 - block是个oc对象，内部也有一个isa指针
 - block内部封装了一段代码块以及代码块的调用环境
 
-### 2、变量捕获
+### 2、变量捕获机制
 
-**auto**：自动变量，c语言函数默认在声明局部变量时，会默认用auto来修饰；其含义为：离开作用域会自动被销毁
+1. **默认捕获行为**：Block 会**捕获创建时**的变量值，而不是引用变量本身
 
-例如：int age = 10;其实内部为 auto int age = 10；只不过auto可以省略，默认给添加了auto修饰。
+2. **对于基本类型和指针类型**：Block 会捕获变量的**当前值**（对于指针，是捕获指针的值，即地址）
 
-| 变量类型 | 访问方式                           | 是否捕获到block内部          |
-| -------- | ---------------------------------- | ---------------------------- |
-| 局部变量 | auto：值传递<br />static：指针传递 | auto：捕获<br />static：捕获 |
-| 全局变量 | 直接访问                           | 不捕获                       |
+   ```objective-c
+   // 例子
+   NSString *s = @"old"; // 1. 创建字符串"old"，s指向它
+   void(^block)(void) = ^{
+       NSLog(@"s:%@",s); // 2. 创建block时，捕获当前s的值（指向"old"的指针）
+   };
+   s = @"new"; // 3. 改变s指向新的字符串"new"
+   block(); // 4. 执行block，打印的是之前捕获的指针指向的值("old")
+   
+   解释（内存示意图）:
+   1. s -> @"old" (地址: 0x1000)
+   2. block捕获: s的值(0x1000)
+   3. s -> @"new" (地址: 0x2000)
+   4. block执行: 使用捕获的地址(0x1000) -> 打印@"old"
+   ```
+
+   
 
 ```objective-c
 //例子
@@ -2159,6 +2172,16 @@ void (^blockName)(void) == ^{
 
 age = 20;
 blockName();//打印结果为20
+/** 解释：
+static 变量的特性：
+1. static 变量存储在静态数据区，而不是栈上
+2. 它的生命周期贯穿整个程序运行期间
+3. 它只有一个实例，所有引用都指向同一个内存地址
+Block 捕获机制：
+1. 对于静态变量和全局变量，block 不会捕获值的副本
+2. 而是直接访问变量的内存地址
+3. 因此，block 内部访问的是变量的当前值
+*/
 
 //3.全局变量
 //定义全局变量 int age（注意：不是定义一个property属性）
@@ -3130,10 +3153,17 @@ int main(int argc, char * argv[]) {
 
 缺点：view依赖model，导致view使用的时候，必须使用model
 
-
 MVVM和MVP的区别：
 
-MVVM可以让view去持有viewModel，并且监听viewModel的属性值变化，当viewModel的属性值改变时，view去刷新视图
+| 特性         | MVP (Objective-C)                                | MVVM (Objective-C)                                    |
+| :----------- | :----------------------------------------------- | :---------------------------------------------------- |
+| **通信方式** | **手动调用协议方法** (`[self.view showLoading]`) | **数据绑定** (KVO, RAC, 或其他第三方库)               |
+| **依赖关系** | **双向依赖** (View 和 Presenter 相互持有引用)    | **单向依赖** (View 持有并观察 ViewModel)              |
+| **UI 更新**  | **命令式** (Presenter **命令** View 该做什么)    | **响应式** (View **响应** ViewModel 状态的变化)       |
+| **代码量**   | 需要编写大量的协议方法                           | 需要编写绑定逻辑（KVO代码较繁琐，RAC可简化）          |
+| **适用场景** | 适合不喜欢引入复杂响应式框架的中小型项目         | 适合复杂UI、多状态交互的项目，尤其是已使用 RAC 的项目 |
+
+MVVM可以让view去持有viewModel，并且监听viewModel的属性值变化，当viewModel的属性值改变时，view去刷新视图。
 
 ### 4、三/四层架构
 
@@ -3406,17 +3436,46 @@ TCP 的三次握手就是为了在这样一个不可靠的网络基础上，建�
 
 **jssdk创建一个字典来管理api方法名和执行函数的映射关系，注册api方法时，将方法名作为key，block函数作为value。**
 
-1. js 调用 iOS 时，webview 收到 decidePolicyForNavigationAction 代理回调，在回调中，iOS 会再调用 js 的一个统一的方法，该方法会返回 js 的一些调用信息，比如方法名、参数，ios 根据方法名在本地维护的映射字典中找到 block 函数，
+1. Js 发起一个和 iOS 端协定的 url 请求（url 中指定 scheme 为某个协定的字符, 比如“mc://_wvmc_queue_message_”，其中 mc 就是协定的字符，host 也协商一个字符，比如上面的 “_wvmc_queue_message_”，用来表示这个请求是打算与 iOS 通信的），webview 收到 decidePolicyForNavigationAction 代理回调，在回调中，iOS 判断 url 中是否包含协定的参数，如果包含，则代表 js 要与我交互，iOS 会再调用 js 的一个统一的方法，该方法会返回 js 的一些调用信息，比如方法名、参数，ios 根据方法名在本地维护的映射字典中找到 block 函数，
 找到就执行。
 
 2. 如果 js 需要返回值，js 那边会定义一个回调函数（比如 _handleMessageFromObjC），当 js 调用 iOS 时，会给 iOS 传入一个callbackId，iOS 执行完函数时，会再调用 js 定义好的回调函数（iOS 调用 js 使用 - (void)evaluateJavaScript:(NSString *)javaScriptString completionHandler:(WK_SWIFT_UI_ACTOR void (^ _Nullable)(_Nullable id, NSError * _Nullable error)，javaScriptString 中拼接方法名和数据，如果是媒体数据，则是 base64 数据) completionHandler 函数），并将返回值和 callbackId 一并返回，js 根据 callbackId 来确定自己需要的返回数据。
 
-
-问题：
+```json
+问题1：
 为什么不直接使用 addScriptMessageHandler:,通过handle回调来让 js 调用 iOS 的方法？
-各端处理逻辑统一，而且可移植性比较强，如果以后要做自己的 webview，可以很方便的切换
-js 端逻辑也比较清晰，调用方法和传递参数结构上更清晰
-项目比较早一开始应该使用的是 UIWebview，webview 应该没有这个方法
+1. 各端处理逻辑统一，而且可移植性比较强，如果以后要做自己的 webview，可以很方便的切换
+2. js 端逻辑也比较清晰，调用方法和传递参数结构上更清晰
+3. 项目比较早一开始应该使用的是 UIWebview，webview 应该没有这个方法
+
+问题2：
+为什么不直接将参数拼接在url后面，而是再让 iOS 去调用 js 的统一方法去获取各种参数或数据？
+解释：
+1. URL长度限制
+直接拼接参数的问题：URL有长度限制（通常浏览器和WebView限制在2000字符左右）。如果JS需要传递大量参数（如JSON数据、base64编码的图片等），直接拼接在URL中可能超出限制，导致请求被截断或失败。
+
+中间调用JS方法的优势：通过先发起一个简单的URL请求（如mc://_wvmc_queue_message_），然后iOS再回调JS的一个统一方法（如window.getQueueMessage()），JS可以返回任意长度的数据（如通过JSON字符串），避免了URL长度限制。这种方式允许传递大型数据块。
+
+2. 异步通信和支持批量处理
+直接拼接参数的局限性：URL请求是同步的，一次只能携带一组参数。如果JS有多个命令需要连续执行，可能需要发起多个URL请求，这会导致性能问题（每个请求都需要创建和销毁iframe或修改location，可能引起页面闪烁或延迟）。
+
+中间调用JS方法的优势：iOS在拦截URL后，可以调用JS的一个方法（如getQueueMessage），该方法可以返回一个队列中的多个消息（例如，JSON数组包含多个方法调用和参数）。这样，iOS可以一次处理多个命令，减少通信次数，提高效率。这对于高频交互的场景非常有用。
+
+3. 协议灵活性和解耦
+直接拼接参数：参数必须编码在URL中，这要求JS和iOS提前约定参数格式（如查询字符串的键值对），并且任何格式变更都需要双方同时调整。如果参数结构复杂（如嵌套对象），编码和解码会变得繁琐。
+
+中间调用JS方法的优势：JS和iOS只需要约定一个简单的URL scheme（如mc://_wvmc_queue_message_）和一个统一的JS方法名。实际的方法名和参数可以通过JSON传递，这使得协议更灵活、易于扩展。例如，JS可以返回类似{ "method": "share", "params": { "title": "Hello", "image": "base64data..." } }的结构，iOS直接解析JSON即可。这种设计支持复杂的参数类型，并且双方只需维护一个统一的接口，而不是多个URL模式。
+
+4. 安全性和错误处理
+直接拼接参数：参数在URL中是明文的，容易在日志或网络监控中被泄露（虽然通常在WebView内部，但仍有风险）。此外，URL编码可能出错（如特殊字符处理）。
+
+中间调用JS方法的优势：参数通过JS方法返回，可以加密或使用更安全的数据格式（如JSON Web Token）。同时，iOS在调用JS方法时，可以处理JS异常或返回错误信息，提供更好的错误处理机制。
+
+5. 性能优化
+直接拼接参数：每次调用都需要创建URL并触发导航，这可能引起WebView的额外开销（如重绘或网络栈处理）。
+
+中间调用JS方法的优势：通过一个统一的URL触发，然后iOS主动调用JS方法，减少了不必要的URL解析和WebView导航操作。iOS可以控制调用频率，例如合并短时间内的大量请求，从而优化性能。
+```
 
 注意：
 1. 第1条中，并不是所有的js调用iOS都会收到 decidePolicyForNavigationAction 回调，比如通过 MessageHandler 调用 iOS 不会
@@ -3495,8 +3554,6 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
                        双向通信桥梁：建立JS到iOS的通信通道
                        事件驱动：当JS调用时才触发
                        数据传递：可以传递复杂的数据结构
-
-
 
 ## 十六、**动态库和静态库的区别**
 
