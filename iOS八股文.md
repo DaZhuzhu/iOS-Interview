@@ -115,15 +115,13 @@ struct __CFRunLoop {
 
   - **触摸事件（Touch Events）：** 当用户在应用程序中进行触摸操作时，触摸事件将被作为 Source0 事件添加到主线程的 Run Loop 中。通过观察者注册回调方法，可以在 Run Loop 中处理触摸事件，例如更新用户界面或执行相应的操作。
 
-  - **定时器事件（Timer Events）：** 使用 NSTimer 或 GCD 的定时器时，定时器事件会被添加为 Source0 事件到 Run Loop 中。当定时器触发时，Run Loop 的观察者将通知相应的回调方法，以执行预定的操作。
-
   - **自定义事件（Custom Events）：** 在某些情况下，应用程序可能需要发送自定义事件，例如自定义通知或消息。这些自定义事件可以作为 Source0 事件添加到 Run Loop 中，并通过观察者来处理。
 
   **特点：**
 
   - 需要手动触发 ，CFRunLoopSourceSignal发送信号，CFRunLoopWakeUp唤醒runloop
-  - 优先级较高
-
+  - 优先级较低
+  
 - Source1：基于端口的事件源，用于处理系统内核事件和其他一些异步事件，比如
   * 电池状态改变、网络连接状态改变
   * 异步网络请求：网络请求结束后，会以srouce1事件的形势发送到主线程的runloop中
@@ -132,7 +130,7 @@ struct __CFRunLoop {
   **特点：**
 
   * 自动处理
-  * 优先级较低
+  * 优先级较高
 
 ####  3、CFRunLoopTimerRef
 
