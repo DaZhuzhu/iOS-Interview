@@ -2785,7 +2785,64 @@ static NSString *sName = @"Dely";//全局（静态初始化）区，数据段
 
 
 
-### 4、内存管理-MRC
+### 4、MRC & ARC
+
+#### 概念
+
+- **MRC (Manual Reference Counting) - 手动引用计数**：
+  - 开发者需要**手动**通过发送 `retain`, `release`, 和 `autorelease` 消息来管理对象的内存生命周期。
+  - 遵循 **“谁创建，谁释放；谁保留，谁释放”** 的原则。
+- **ARC (Automatic Reference Counting) - 自动引用计数**：
+  - 编译器在**编译时期**自动在合适的地方插入 `retain`, `release`, 和 `autorelease` 的代码。
+  - 开发者不再需要手动书写这些内存管理代码，只需关注对象的**所有权关系**（使用 `strong`, `weak` 等修饰符），编译器会帮你完成繁重的工作。
+  - **ARC 不是垃圾回收（Garbage Collection）**。垃圾回收是运行时（Runtime）的特性，而 ARC 是编译时的特性，性能损耗极低。
+
+#### 详细区别对比
+
+| 特性               | MRC (手动引用计数)                                           | ARC (自动引用计数)                                           |
+| :----------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
+| **管理方式**       | **手动**：开发者需要显式调用 `retain`, `release`, `autorelease`。 | **自动**：编译器在编译时自动插入 `retain`, `release` 等代码。 |
+| **所有权修饰符**   | 无 `strong`, `weak` 等修饰符。属性的设置器方法需要手动实现内存管理。 | 使用 `__strong`（默认）, `__weak`, `__unsafe_unretained`, `__autoreleasing` 来定义变量和属性的所有权语义。 |
+| **代码示例**       | `objc MyClass *obj = [[MyClass alloc] init]; // retainCount = 1 [obj doSomething]; [obj release]; // retainCount = 0, 对象被释放` | `objc MyClass *obj = [[MyClass alloc] init]; // 编译器管理 [obj doSomething]; // 方法结束后，编译器可能在某个时机自动插入 release` |
+| **dealloc 方法**   | **必须** 在 `dealloc` 中调用 `[super dealloc]`，并且需要手动释放实例变量（`ivar`）。 | **禁止** 调用 `[super dealloc]`（编译器会报错）。通常也不需要手动释放实例变量（除非处理 Core Foundation 对象的 CFRelease() 或 C 语言的 `free()`）。 |
+| **性能**           | 理论上，精心设计的手动管理可以达到极致性能。                 | 性能与 MRC 几乎无异，因为额外开销只是编译时插入的代码，而非运行时的垃圾回收机制。 |
+| **便利性与安全性** | **繁琐且易出错**：容易因忘记 `release` 导致内存泄漏，或因过度 `release` 导致野指针崩溃。 | **高效且安全**：大大减少了内存管理错误，开发者可以更专注于业务逻辑。但仍需注意循环引用问题（需用 `weak` 解决）。 |
+| **时代背景**       | iOS 5 之前（2011年之前）的主流方式。                         | iOS 5 及之后版本引入并成为**默认和强制**方式。现在新项目都是 ARC。 |
+
+#### 重要说明与示例
+
+1. **所有权修饰符 (Ownership Qualifiers)**
+
+这是 ARC 的核心概念，用于告诉编译器对象之间的关系。
+
+- `__strong` (默认)：强引用，只要有一个强指针指向对象，对象就不会被释放。
+- `__weak`：弱引用，不持有对象。如果对象被释放，所有指向它的弱指针会自动置为 `nil`。**用于解决循环引用**（如 `delegate`）。
+- `__unsafe_unretained`：类似 `__weak`，但对象释放后，指针不会自动置 `nil`，而是成为野指针，访问它会导致崩溃。用于兼容 iOS 4 或某些特殊场景。
+- `__autoreleasing`：用于通过引用传递参数（`id *`），表明参数在返回时会被自动释放。
+
+2. **循环引用 (Retain Cycles)**
+
+**ARC 并没有解决循环引用问题**，它只是让普通的内存管理变得更简单。循环引用仍需开发者通过 `weak` 引用来手动打破。
+
+**MRC 下的循环引用：**
+
+objective-c
+
+```objective-c
+// MRC 下解决循环引用通常用 assign (相当于 unsafe_unretained)
+@property (nonatomic, assign) id delegate;
+```
+
+**ARC 下的循环引用：**
+
+objective-c
+
+```objective-c
+// ARC 下必须用 weak 来打破循环引用
+@property (nonatomic, weak) id delegate;
+```
+
+MRC 例子：
 
 ```objective-c
 // 例子：手写一个属性
@@ -2844,11 +2901,9 @@ static NSString *sName = @"Dely";//全局（静态初始化）区，数据段
 
 exten void _objc_autoreleasePoolPrint(void);
 
-![copy-mutableCopy](/Users/xiaozhuzhu/Documents/work/iOS资料/image/copy-mutableCopy.png)
+### 5、weak 修饰符/指针的实现原理
 
-### 5、weak指针的实现原理
-
-对象会将弱引用存到一个叫做“weak table”的哈希表里，以对象的地址为 key，value 是这个对象的 weak 指针的地址集合。当对象要销毁时，runtimer 会取出其中的weak table，把里面存储的弱引用的空间释放，并将他们的指针置为 nil。
+对象会将弱引用存到一个叫做“weak table”的哈希表里，以对象的地址为 key，value 是这个对象的 weak 指针的地址集合。当对象要销毁时，runtime 会取出其中的 weak table，把里面存储的弱引用的空间释放，并将他们的指针置为 nil。
 
 ### 6、自动释放池 autoreleasepool
 
@@ -3167,10 +3222,6 @@ MVVM可以让view去持有viewModel，并且监听viewModel的属性值变化，
 
 ### 4、三/四层架构
 
-![三层架构](/Users/xiaozhuzhu/Documents/work/iOS资料/image/三层架构.png)
-
-![四层架构](/Users/xiaozhuzhu/Documents/work/iOS资料/image/四层架构.png)
-
 ### 5、设计模式
 
 主要是类与类之间的交互模式。
@@ -3248,6 +3299,64 @@ MVVM可以让view去持有viewModel，并且监听viewModel的属性值变化，
 6. 迪米特法则：一个软件实体应该尽可能少的直接与其他软件实体交互，最好引入第三者来进行交互。例如：MVVM中，view和model互不知道对方存在，通过viewmodel进行交互。
 
 **iOS一般用到前五个（简称SOLID）**
+
+### 7. 组件通信
+
+**protocol、target-action、router三种通信方式的优缺点、区别**
+
+**protocol：**通过定义接口协议，让组件之间通过协议进行通信，而不需要直接引用具体类。
+
+优点
+
+- **类型安全**：编译器会检查方法调用和参数类型
+- **代码清晰**：接口定义明确，易于理解和使用
+- **易于测试**：可以通过Mock对象轻松测试
+- **代码自动补全**：IDE支持良好，开发效率高
+
+缺点
+
+- **依赖管理**：需要维护公共接口模块
+- **灵活性有限**：协议一旦定义，修改成本较高
+- **组件耦合**：调用方需要知道协议的存在
+
+**target-action**：通过运行时机制，使用类名和方法名的字符串表示来调用功能。
+
+优点
+
+- **高度解耦**：调用方不需要知道具体类
+- **动态性**：可以在运行时决定调用哪个组件
+- **灵活性**：易于扩展和修改
+
+缺点
+
+- **类型不安全**：编译器无法检查方法名和参数类型
+- **维护困难**：字符串硬编码，重构时容易出错
+- **调试困难**：运行时错误难以追踪
+- **性能开销**：运行时反射有一定性能成本
+
+**router：**通过URL路由机制，统一处理所有组件间的跳转和通信。
+
+优点
+
+- **统一管理**：所有跳转逻辑集中处理
+- **高度解耦**：组件间完全解耦
+- **跨平台支持**：可与Web端统一路由规则
+- **动态配置**：可通过配置文件动态更新路由规则
+
+缺点
+
+- **类型不安全**：参数需要手动解析和类型转换
+- **学习成本**：需要理解路由机制
+- **过度设计**：简单项目可能显得复杂
+- **维护成本**：需要维护路由表
+
+**总结**
+
+- **Protocol 方式**最适合类型安全的组件方法调用，是iOS开发中最符合语言特性的方式
+- **Target-Action 方式**提供了更高的灵活性，但牺牲了类型安全，适合简单场景
+- **路由方式**最适合处理页面跳转和统一导航逻辑，特别适合大型项目
+
+在实际项目中，应根据具体需求选择合适的通信方式，或者结合使用这三种方式，发挥各自优势，构建可维护、可扩展的组件化架构。
 
 ## 十二、网络
 

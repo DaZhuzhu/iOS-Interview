@@ -8,6 +8,19 @@ public class ListNode {
     public init(_ val: Int, _ next: ListNode?) { self.val = val; self.next = next; }
 }
 
+public class TreeNode {
+    public var val: Int
+    public var left: TreeNode?
+    public var right: TreeNode?
+    public init() { self.val = 0; self.left = nil; self.right = nil; }
+    public init(_ val: Int) { self.val = val; self.left = nil; self.right = nil; }
+    public init(_ val: Int, _ left: TreeNode?, _ right: TreeNode?) {
+        self.val = val
+        self.left = left
+        self.right = right
+    }
+}
+
 class Solution {
 //    ************** 两数之和
     func twoSum(_ nums: [Int], _ target: Int) -> [Int] {
@@ -311,6 +324,23 @@ class Solution {
         
         return result
     }
+    
+//   **************** 反转链表
+    func reverseList(_ head: ListNode?) -> ListNode? {
+        var pre: ListNode? = nil
+        var cur = head
+        
+        while cur != nil {
+            let next = cur?.next
+            cur?.next = pre
+            pre = cur
+            cur = next
+        }
+        
+        return pre // 为什么不是返回cur，因为cur有可能是nil，而pre则是最后遍历到的那个值
+    }
+    
+    
 //   **************** 盛最多水的容器: 双指针法，移动较短的那条线
     // 给定一个长度为 n 的整数数组 height 。有 n 条垂线，第 i 条线的两个端点是 (i, 0) 和 (i, height[i]) 。
     // 找出其中的两条线，使得它们与 x 轴共同构成的容器可以容纳最多的水。
@@ -340,7 +370,6 @@ class Solution {
     }
     
 //  ************ 给你一个链表的头节点 head 和一个整数 val ，请你删除链表中所有满足 Node.val == val 的节点，并返回 新的头节点 。
-    
     func removeElements(_ head: ListNode?, _ val: Int) -> ListNode? {
         var dummy: ListNode = ListNode(0)
         dummy.next = head
@@ -357,8 +386,23 @@ class Solution {
         
         return dummy.next
     }
-    
    
+//  ************* 裁剪二叉树
+    // 给定一个二叉树 根节点 root ，树的每个节点的值要么是 0，要么是 1。请剪除该二叉树中所有节点的值为 0 的子树。节点 node 的子树为 node 本身，以及所有 node 的后代。
+    func pruneTree(_ root: TreeNode?) -> TreeNode? {
+        // 后序遍历：先处理左右子树，再处理当前节点
+        guard let node = root else { return nil }
+        
+        node.left = pruneTree(node.left)
+        node.right = pruneTree(node.right)
+        
+        // 如果当前节点值为0且没有子节点，则剪除该节点
+        if node.val == 0 && node.left == nil && node.right == nil {
+            return nil
+        }
+        
+        return node
+   }
     
 }
 
