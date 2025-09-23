@@ -387,7 +387,7 @@ class Solution {
         return dummy.next
     }
    
-//  ************* 裁剪二叉树
+//  **************** 裁剪二叉树
     // 给定一个二叉树 根节点 root ，树的每个节点的值要么是 0，要么是 1。请剪除该二叉树中所有节点的值为 0 的子树。节点 node 的子树为 node 本身，以及所有 node 的后代。
     func pruneTree(_ root: TreeNode?) -> TreeNode? {
         // 后序遍历：先处理左右子树，再处理当前节点
@@ -403,6 +403,20 @@ class Solution {
         
         return node
    }
+    
+//  **************** 反转翻转二叉树，（个人总结：涉及二叉树的算法好像都用到了递归函数）
+    func flipTree(_ root: TreeNode?) -> TreeNode? {
+        guard let node = root else { return nil }
+        
+        var leftNode = flipTree(node.left)
+        var rightNode = flipTree(node.right)
+        
+        node.right = leftNode
+        node.left = rightNode
+        
+        return node
+    }
+    
     
 }
 
