@@ -57,8 +57,6 @@ dispatch_async(dispatch_get_global_queue(0,0),^{
 }
 ```
 
-
-
 ### 3、runloop 的接口
 
 在CoreFoundation里有五个类：
@@ -68,10 +66,6 @@ dispatch_async(dispatch_get_global_queue(0,0),^{
 - CFRunLoopSourceRef
 - CFRunLoopTimerRef
 - CFRunLoopObserverRef
-
-他们的关系如下
-
-![RunLoop](/Users/wangjl/Downloads/iOS知识点总结/image/RunLoop.png)
 
 #### 1、CFRunLoopModeRef
 
@@ -1951,22 +1945,20 @@ forwardingTargetForSelector://该方法可能是类方法也可能是实例方�
 **概念：**KVC（Key-Value Coding）是苹果提供的一种机制，允许开发者通过字符串（键）间接访问对象的属性和成员变量。它的核心方法是`valueForKey:`和`setValue:forKey:`。
 
 **setValue:forKey:调用顺序**
-// 假设调用 [obj setValue:value forKey:@"name"]
 
-// 1. 查找 setter 方法（按优先级）
-- (void)setName:(id)value;
-- (void)_setName:(id)value;
+```objective-c
+1. 首先查找是否有`setKey`，`_setKey`，`_setIsKey`方法。如果有的话，按顺序只调用一个即可。`key`是指成员变量。没有则走第二步。
+2. 没有找到第一步方法，去判断`accessInstanceVariablesDirectly`是否返回`YES`,默认是的。如果返回的是YES，就直接按照_key，_iskey，key，iskey的顺序搜索成员变量。设置为`NO`，就不搜索。如果返回的是`NO`或者没有找到上面的方法，则进行第3步。
+3. 系统就会执行该对象的`setValue：forUndefinedKey: `方法，如果不重写该方法，则会抛出`NSUndefinedKeyException`类型异常
+```
 
-// 2. 检查 accessInstanceVariablesDirectly
-+ (BOOL)accessInstanceVariablesDirectly {
-    return YES; // 默认返回YES，允许直接访问实例变量
-    }
+**valueForKey: 调用顺序**
 
-// 3. 查找实例变量（按优先级）
-_name
-_isName  
-name
-isName
+```objective-c
+1. 首先查找是否有getKey，Key，isKey，_Key方法。如果有的话，按顺序只调用一个即可。key是指成员变量
+2. 没有找到第一步方法，则去判断accessInstanceVariablesDirectly是否返回YES,默认是的。如果返回的是YES，就直接按照_key，_iskey，key，iskey的顺序搜索成员变量，直接访问成员变量的值。设置为NO，就不搜索。如果返回的是NO或者没有找到上面的方法，则进行第3步。
+3. 系统就会执行该对象的valueForUndefinedKey: 方法，如果不重写该方法，则会抛出NSUndefinedKeyException类型异常
+```
 
 **Tips：KVC可以触发KVO。**
 
@@ -2118,8 +2110,6 @@ objc_removeAssociatedObjects(id object);
 **原理：**
 
 关联对象并不是把属性放在类的属性列表中，而是存储在全局的统一的一个 AssociationsManager 中。
-
-
 
 ## 七、block
 

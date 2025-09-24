@@ -417,7 +417,25 @@ class Solution {
         return node
     }
     
-    
+//  ******************* Z 字转换：将一个给定字符串 s 根据给定的行数 numRows ，以从上往下、从左到右进行 Z 字形排列。
+    func conver(str: String, rows: Int) -> String {
+        guard rows > 1 else { return str }
+        
+        var stringRows = [String](repeating: "", count: rows)
+        var goingDown = false
+        var curRow = 0
+        
+        for char in str {
+            stringRows[curRow].append(char)
+            
+            if curRow == 0 || curRow == rows - 1 {
+                goingDown = !goingDown
+            }
+            curRow += goingDown ? 1 : -1
+        }
+        
+        return stringRows.joined()
+    }
 }
 
 let solution = Solution()
