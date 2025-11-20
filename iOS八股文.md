@@ -1463,7 +1463,7 @@ union isa_t{
 nil  // 终点
 ```
 
-从arm64架构开始，对 isa 进行了优化，变成了一个共用体(union）结构，来存储更多的信息
+**从arm64架构开始，对 isa 进行了优化，变成了一个共用体(union）结构，来存储更多的信息**
 
 **isa 在内存中的演进**
 
@@ -2734,41 +2734,92 @@ dispatch_semaphore_t semaphore_;
 
 ### 3、iOS内存布局
 
-**用户空间**包含：
+```objective-c
+高地址
+┌─────────────────────────┐
+│   内核区 (Kernel)        │  ← 内核空间，用户程序不可访问
+|													|  包含内核代码和数据，以及硬件设备的内存映射等。
+|													|  
+├─────────────────────────┤
+│                         │
+│   栈区 (Stack)          │  ⬇️ 向低地址增长
+│                         │     • 局部变量
+│                         │     • 函数参数
+│                         │     • 返回地址
+├─────────────────────────┤
+│         ⬆️⬇️            │
+│       (空闲区域)         │
+├─────────────────────────┤
+│                         │
+│   堆区 (Heap)           │  ⬆️ 向高地址增长
+│                         │     • 动态分配的对象
+│                         │     • alloc、malloc 等
+├─────────────────────────┤
+│   未初始化数据段 (.bss)  │   • 未初始化的全局变量
+│                         │  • 未初始化的静态变量
+├─────────────────────────┤
+│   已初始化数据段 (.data) │   • 已初始化的全局变量
+│                         │  • 已初始化的静态变量
+├─────────────────────────┤
+│   只读数据段 (.rodata)   │   • const 常量
+│                         │  • 字符串字面量
+├─────────────────────────┤
+│   代码段 (__TEXT)        │  • 编译后的机器代码
+│                         │  • 程序指令
+├─────────────────────────┤
+│   保留区 (Reserved)      │  • 系统保留
+└─────────────────────────┘
 
-1. **代码区（Text Segment）**：存储程序二进制代码（函数 / 方法实现），只读（防止篡改）
-2. **常量区**：**只读的常量空间**，字符串常量（如 `@"iOS Memory"`）、`const` 修饰的常量（如 `const int constVar = 5;`）。
-3. **全局静态区（Data Segment）**：**贯穿程序生命周期的空间**；存储应用程序的**全局变量**和**静态变量**，这个部分还可以被分为**已初始化的数据段**和**未初始化的BSS段**。这个部分的内存在程序启动时被分配，并在程序运行期间保持不变。
-4. **堆（Heap）**：在程序运行时动态分配的内存空间，例如通过**alloc**、**new**、**malloc**初始化的对象。堆中的内存需要手动管理（ARC除外），未使用的内存必须被手动释放（ARC除外），否则会造成内存泄漏。
-5. **栈（Stack）**：存储内容**：局部变量（如 `int a`、`NSString *ptr`）、函数参数、函数返回值。
-   ✅ 注意：对象的**指针**存在栈，对象**本身**存在堆（如 `NSString *obj = [[NSString alloc] init]`，`obj` 指针在栈，`alloc` 出来的对象在堆）。
+p.s. 其中.bss/.data/.rodata 都属于「数据段」
+```
 
-地址分配**由低到高**分别是：代码区 - > 数据段 - > BSS 段 - >  堆 - > 栈
+**特点：**
 
-**内核空间**：包含内核代码和数据，以及硬件设备的内存映射等。
+**高地址**
+  **↑**
+**┌─────┐**
+**│ 栈  │ ⬇️ 快、小、自动、局部变量**
+**├─────┤**
+**│空闲 │**
+**├─────┤**
+**│ 堆  │ ⬆️ 慢、大、手动、动态对象**
+**├─────┤**
+**│数据 │ 全局变量、静态变量、常量**
+**├─────┤**
+**│代码 │ 只读、函数、方法**
+**└─────┘**
+  **↓**
+**低地址**
 
-注意：宏定义并不占用特定的内存区域，而是在预处理阶段进行文本替换，最终被包含在生成的可执行文件中。
+**注意**：宏定义并不占用特定的内存区域，而是在预处理阶段进行文本替换，最终被包含在生成的可执行文件中。
 
 ```objective-c
-int age = 24;//全局初始化区（数据区），数据段
-NSString *name;//全局未初始化区（BSS区），数据段
-static NSString *sName = @"Dely";//全局（静态初始化）区，数据段
+// 举例
+NSString *b = @"str";
 
-@implementation ViewController
+// 1. 局部变量
+| 项目 | 编译时是否确定？ | 地址 | 说明 |
+|-----|----------------|------|------|
+| **字符串 `@"str"`** | ✅ **是** | 0x100002000（固定） | 编译时写入常量区 |
+| **b 存储的值** | ✅ **是** | 0x100002000（固定） | 编译时知道字符串地址 |
+| **b 变量本身** | ❌ **否** | 0x7ffee...（变化） | 运行时在栈上分配 |
 
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    int tmpAge;//栈
-    NSString *tmpName;//栈
-    NSString *number = @"123456"; //123456在常量区，number在栈上。
-    NSMutableArray *array = [NSMutableArray arrayWithCapacity:1];// 分配而来的8字节的区域就在堆中，array在栈中，指向堆区的地址
-    NSInteger total = [self getTotalNumber:1 number2:1];
-}
+**关键点：**
+- ✅ 字符串地址：编译时固定
+- ✅ b 的值：编译时固定（就是字符串地址）
+- ❌ b 的位置：运行时确定（每次调用可能不同）
+  
+// 2. 全局变量
+| 项目 | 编译时是否确定？ | 地址 | 说明 |
+|-----|----------------|------|------|
+| **字符串 `@"str"`** | ✅ **是** | 0x100002000（固定） | 编译时写入常量区 |
+| **b 存储的值** | ✅ **是** | 0x100002000（固定） | 编译时知道字符串地址 |
+| **b 变量本身** | ✅ **是** | 0x100008008（固定） | 编译时在 .data 段分配 |
 
-- (NSInteger)getTotalNumber:(NSInteger)number1 number2:(NSInteger)number2{
-    return number1 + number2;//number1和number2 栈区
-}
-@end
+**关键点：**
+- ✅ 字符串地址：编译时固定
+- ✅ b 的值：编译时固定
+- ✅ b 的位置：编译时固定
 ```
 
 
@@ -2891,7 +2942,7 @@ exten void _objc_autoreleasePoolPrint(void);
 
 ### 5、weak 修饰符/指针的实现原理
 
-对象会将弱引用存到一个叫做“weak table”的哈希表里，以对象的地址为 key，value 是这个对象的 weak 指针的地址集合。当对象要销毁时，runtime 会取出其中的 weak table，把里面存储的弱引用的空间释放，并将他们的指针置为 nil。
+对象会将弱引用存到一个叫做“weak table”的哈希表里，以**对象的地址为 key**，value 是这个对象的 **weak 指针的地址集合**。当对象要销毁时，runtime 会取出其中的 weak table，把里面存储的弱引用的空间释放，并将他们的指针置为 nil。
 
 ### 6、自动释放池 autoreleasepool
 
@@ -3014,12 +3065,11 @@ int main(int argc, char * argv[]) {
 
 ```objective-c
 - (id)transformResponse:(LxCoreContact_PhoneCall_QueryResponse *)response mTime:(int64_t)mTime{
-        
-    @autoreleasepool {
-          for (LxCoreContact_PhoneCall_Contact *contact in opArr) {
-             UIImage *img = [UIImage new];
-          }
-      }
+    for (LxCoreContact_PhoneCall_Contact *contact in opArr) {
+        @autoreleasepool {
+            UIImage *img = [UIImage new];
+        }
+    }
  	  NSLog(@"结束");
   	return id;
 }
@@ -3533,124 +3583,82 @@ TCP 的三次握手就是为了在这样一个不可靠的网络基础上，建�
 
 **jssdk创建一个字典来管理api方法名和执行函数的映射关系，注册api方法时，将方法名作为key，block函数作为value。**
 
-1. Js 发起一个和 iOS 端协定的 url 请求（url 中指定 scheme 为某个协定的字符, 比如“mc://_wvmc_queue_message_”，其中 mc 就是协定的字符，host 也协商一个字符，比如上面的 “_wvmc_queue_message_”，用来表示这个请求是打算与 iOS 通信的），webview 收到 decidePolicyForNavigationAction 代理回调，在回调中，iOS 判断 url 中是否包含协定的参数，如果包含，则代表 js 要与我交互，iOS 会再调用 js 的一个统一的方法，该方法会返回 js 的一些调用信息，比如方法名、参数，ios 根据方法名在本地维护的映射字典中找到 block 函数，
-找到就执行。
+1. **MessageHandler方案 (addScriptMessageHandler:) ⭐ 推荐**
 
-2. 如果 js 需要返回值，js 那边会定义一个回调函数（比如 _handleMessageFromObjC），当 js 调用 iOS 时，会给 iOS 传入一个callbackId，iOS 执行完函数时，会再调用 js 定义好的回调函数（iOS 调用 js 使用 - (void)evaluateJavaScript:(NSString *)javaScriptString completionHandler:(WK_SWIFT_UI_ACTOR void (^ _Nullable)(_Nullable id, NSError * _Nullable error)，javaScriptString 中拼接方法名和数据，如果是媒体数据，则是 base64 数据) completionHandler 函数），并将返回值和 callbackId 一并返回，js 根据 callbackId 来确定自己需要的返回数据。
+```objective-c
+// Native端注册
+WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+[config.userContentController addScriptMessageHandler:self name:@"nativeBridge"];
 
-```json
-问题1：
-为什么不直接使用 addScriptMessageHandler:,通过handle回调来让 js 调用 iOS 的方法？
-1. 各端处理逻辑统一，而且可移植性比较强，如果以后要做自己的 webview，可以很方便的切换
-2. js 端逻辑也比较清晰，调用方法和传递参数结构上更清晰
-3. 项目比较早一开始应该使用的是 UIWebview，webview 应该没有这个方法
-
-问题2：
-为什么不直接将参数拼接在url后面，而是再让 iOS 去调用 js 的统一方法去获取各种参数或数据？
-解释：
-1. URL长度限制
-直接拼接参数的问题：URL有长度限制（通常浏览器和WebView限制在2000字符左右）。如果JS需要传递大量参数（如JSON数据、base64编码的图片等），直接拼接在URL中可能超出限制，导致请求被截断或失败。
-
-中间调用JS方法的优势：通过先发起一个简单的URL请求（如mc://_wvmc_queue_message_），然后iOS再回调JS的一个统一方法（如window.getQueueMessage()），JS可以返回任意长度的数据（如通过JSON字符串），避免了URL长度限制。这种方式允许传递大型数据块。
-
-2. 异步通信和支持批量处理
-直接拼接参数的局限性：URL请求是同步的，一次只能携带一组参数。如果JS有多个命令需要连续执行，可能需要发起多个URL请求，这会导致性能问题（每个请求都需要创建和销毁iframe或修改location，可能引起页面闪烁或延迟）。
-
-中间调用JS方法的优势：iOS在拦截URL后，可以调用JS的一个方法（如getQueueMessage），该方法可以返回一个队列中的多个消息（例如，JSON数组包含多个方法调用和参数）。这样，iOS可以一次处理多个命令，减少通信次数，提高效率。这对于高频交互的场景非常有用。
-
-3. 协议灵活性和解耦
-直接拼接参数：参数必须编码在URL中，这要求JS和iOS提前约定参数格式（如查询字符串的键值对），并且任何格式变更都需要双方同时调整。如果参数结构复杂（如嵌套对象），编码和解码会变得繁琐。
-
-中间调用JS方法的优势：JS和iOS只需要约定一个简单的URL scheme（如mc://_wvmc_queue_message_）和一个统一的JS方法名。实际的方法名和参数可以通过JSON传递，这使得协议更灵活、易于扩展。例如，JS可以返回类似{ "method": "share", "params": { "title": "Hello", "image": "base64data..." } }的结构，iOS直接解析JSON即可。这种设计支持复杂的参数类型，并且双方只需维护一个统一的接口，而不是多个URL模式。
-
-4. 安全性和错误处理
-直接拼接参数：参数在URL中是明文的，容易在日志或网络监控中被泄露（虽然通常在WebView内部，但仍有风险）。此外，URL编码可能出错（如特殊字符处理）。
-
-中间调用JS方法的优势：参数通过JS方法返回，可以加密或使用更安全的数据格式（如JSON Web Token）。同时，iOS在调用JS方法时，可以处理JS异常或返回错误信息，提供更好的错误处理机制。
-
-5. 性能优化
-直接拼接参数：每次调用都需要创建URL并触发导航，这可能引起WebView的额外开销（如重绘或网络栈处理）。
-
-中间调用JS方法的优势：通过一个统一的URL触发，然后iOS主动调用JS方法，减少了不必要的URL解析和WebView导航操作。iOS可以控制调用频率，例如合并短时间内的大量请求，从而优化性能。
-```
-
-注意：
-1. 第1条中，并不是所有的js调用iOS都会收到 decidePolicyForNavigationAction 回调，比如通过 MessageHandler 调用 iOS 不会
-// JS 端 - 不会触发 decidePolicyForNavigationAction
-window.webkit.messageHandlers.nativeHandler.postMessage({
-    method: 'showAlert',
-    message: 'Hello iOS'
-});
-
-这个交互的完整流程是
-// iOS 设置
-- (void)setupMessageHandler {
-    [self.webView.configuration.userContentController 
-     addScriptMessageHandler:self name:@"nativeHandler"]; // 注册一个方法名，供 js 调用
-    }
-
-// js 调用后 iOS 会收到 didReceiveScriptMessage 回调
+// 实现协议
 - (void)userContentController:(WKUserContentController *)userContentController 
       didReceiveScriptMessage:(WKScriptMessage *)message {
-    NSDictionary *body = message.body;
-    NSString *method = body[@"method"];
-  
-    if ([method isEqualToString:@"showAlert"]) {
-        NSString *msg = body[@"message"];
-        [self showAlert:msg];
+    if ([message.name isEqualToString:@"nativeBridge"]) {
+        NSDictionary *params = message.body;
+        NSString *method = params[@"method"];
+        // 处理调用
     }
-  }
+}
 
-2. js 通过 URL Scheme - 会触发
-// JS 端 - 会触发 decidePolicyForNavigationAction
-window.location.href = 'myapp://showAlert?message=hello';
+// JS端调用
+window.webkit.messageHandlers.nativeBridge.postMessage({
+    method: 'getUserInfo',
+    params: { userId: 123 }
+});
 
-// 或者
-document.location = 'tel:10086';
+优点：
+✅ 性能最好，不触发页面跳转
+✅ 无数据大小限制
+✅ 支持传递复杂数据结构（自动JSON序列化）
+✅ Apple官方推荐方案
+✅ 代码清晰，易于维护
+缺点：
+❌ 仅支持WKWebView（iOS 8+）
+❌ 不支持同步返回值（需要callback机制）
+⚠️ 需要注意内存泄漏（messageHandler会强引用）
+```
 
-// 或者创建链接点击
-var a = document.createElement('a');
-a.href = 'myapp://action';
-a.click();
+2.  **URL拦截方案 (decidePolicyForNavigationAction:)**
 
-// iOS 端 - 会被调用
+```objective-c
+// WKWebView
 - (void)webView:(WKWebView *)webView 
 decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction 
 decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
-  
-    NSString *urlString = navigationAction.request.URL.absoluteString;
-  
-    if ([urlString hasPrefix:@"myapp://"]) {
-        // 处理自定义协议
-        [self handleCustomScheme:navigationAction.request.URL];
-        decisionHandler(WKNavigationActionPolicyCancel); // 阻止导航
+    NSURL *url = navigationAction.request.URL;
+    
+    if ([url.scheme isEqualToString:@"jsbridge"]) {
+        // 解析 jsbridge://methodName?param1=value1&param2=value2
+        NSString *methodName = url.host;
+        // 处理调用
+        decisionHandler(WKNavigationActionPolicyCancel);
         return;
     }
-  
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 
+优点：
+✅ 兼容性好（UIWebView和WKWebView都支持）
+✅ 实现简单，易于理解
+✅ 无需注入JS代码
+缺点：
+❌ URL长度限制（约2KB）
+❌ 性能较差（会触发页面跳转流程）
+❌ 不支持同步返回值
+❌ 参数需要URL编码，复杂数据传输不便
+```
 
------------------------------------------ 概念理解 ----------------------------------------- 
-- (void)addUserScript:(WKUserScript *)userScript
-作用
-在页面加载时自动注入JavaScript代码，这些代码会成为页面的一部分。
-特点
-主动注入：iOS主动向WebView注入JS代码
-自动执行：页面加载时自动执行，不需要iOS再次调用
-一次性设置：设置后对所有页面生效
-扩展页面功能：为页面添加新的JS函数、变量或修改页面行为
-使用场景：• 为页面添加工具函数<br>• 修改页面样式/行为<br>• 建立通信桥梁<br>• 页面功能增强
+**原生调用 js**
 
-- (void)addScriptMessageHandler:(id<WKScriptMessageHandler>)scriptMessageHandler 
-                           name:(NSString *)name;
-                           作用
-                       注册一个消息处理器，让JavaScript可以向iOS发送消息。
-                       特点
-                       被动接收：iOS等待JS发送消息
-                       双向通信桥梁：建立JS到iOS的通信通道
-                       事件驱动：当JS调用时才触发
-                       数据传递：可以传递复杂的数据结构
+```objective-c
+// Native调用JS
+[webView evaluateJavaScript:@"window.jsFunction('hello')" 
+          completionHandler:^(id result, NSError *error) {
+    NSLog(@"JS返回: %@", result);
+}];
+```
+
+
 
 ## 十六、**动态库和静态库的区别**
 
